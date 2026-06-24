@@ -108,7 +108,13 @@ app.post("/api/register", async (req: Request, res: Response) => {
 });
 
 async function setupViteOrStatic() {
-  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  if (process.env.VERCEL) {
+    // On Vercel, static files are served directly by the Edge Network CDN using vercel.json routes.
+    // Express only needs to handle API routes, so we skip static file setup.
+    return;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
     // Development: Vite dev server middleware
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
@@ -117,7 +123,7 @@ async function setupViteOrStatic() {
     });
     app.use(vite.middlewares);
   } else {
-    // Production / Vercel: statik dist papkasini serve qilish
+    // Production / Local run: serve static dist folder
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
@@ -127,7 +133,7 @@ async function setupViteOrStatic() {
 }
 
 if (!process.env.VERCEL) {
-  // Lokalda to'liq server sifatida ishga tushirish
+  // Local HTTP Server
   (async () => {
     await runMigrations();
     await setupViteOrStatic();
@@ -138,13 +144,9 @@ if (!process.env.VERCEL) {
     console.error('Server failed to start:', error);
   });
 } else {
-  // Vercel Serverless Function: await bilan chaqirish
-  (async () => {
-    await runMigrations();
-    await setupViteOrStatic();
-  })().catch((error) => {
-    console.error('Vercel init error:', error);
-  });
+  // Vercel Serverless Function Init
+  runMigrations();
+  setupViteOrStatic();
 }
 
 export default app;
