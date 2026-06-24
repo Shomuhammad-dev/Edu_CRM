@@ -109,6 +109,7 @@ app.post("/api/register", async (req: Request, res: Response) => {
 
 async function setupViteOrStatic() {
   if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    // Development: Vite dev server middleware
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -116,15 +117,17 @@ async function setupViteOrStatic() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    // Production / Vercel: statik dist papkasini serve qilish
+    const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 }
 
 if (!process.env.VERCEL) {
+  // Lokalda to'liq server sifatida ishga tushirish
   (async () => {
     await runMigrations();
     await setupViteOrStatic();
@@ -135,8 +138,13 @@ if (!process.env.VERCEL) {
     console.error('Server failed to start:', error);
   });
 } else {
-  runMigrations();
-  setupViteOrStatic();
+  // Vercel Serverless Function: await bilan chaqirish
+  (async () => {
+    await runMigrations();
+    await setupViteOrStatic();
+  })().catch((error) => {
+    console.error('Vercel init error:', error);
+  });
 }
 
 export default app;
